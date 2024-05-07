@@ -2,10 +2,12 @@ const dgram = require('dgram');
 const readline = require('readline');
 const os = require('os');
 const axios = require('axios');
+const fs = require('fs');
 
 const PORT = 7777; // Porta do servidor UDP
 const RETRY_INTERVAL = 3000; // Intervalo de tempo entre as tentativas (em milissegundos)
 const SERVER_UP_DURATION = 10000; // Tempo que o servidor ficará ligado após ter sido criado com sucesso (em milissegundos)
+const STATUS_ARQUIVO = 'status_servidor.txt';
 
 // Defina a URL da API do Xano e sua chave de API
 const xanoUrl = 'https://x8ki-letl-twmt.n7.xano.io/api:o0Wi0NQ7/servers';
@@ -15,7 +17,7 @@ let idDoServer
 
 let xanoPutUrl
 
-let server = null;
+let server = null
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
@@ -26,6 +28,73 @@ const interfaceName = 'tun0';
 
 // Obtém a lista de interfaces de rede
 const interfaces = os.networkInterfaces();
+
+process.on('SIGINT', () => {
+  console.log('\nScript encerrado usando Ctrl + C');
+
+  const dadosParaAtualizar = {
+    online: 'offline',
+    // Adicione mais campos conforme necessário
+  };
+
+  axios.put(xanoPutUrl, dadosParaAtualizar)
+  .then((response) => {
+    console.log('Resposta da API:', response.data);
+    process.exit(0); // Sai do processo Node.js
+  })
+  .catch((error) => {
+    console.error('Erro ao enviar solicitação PUT:', error);
+  });
+});
+
+// Função para ler o conteúdo do arquivo de texto e realizar ação com base no conteúdo
+const lerArquivo = () => {
+  fs.readFile(STATUS_ARQUIVO, 'utf8', (err, data) => {
+    if (err) {
+//      console.error('Erro ao ler o arquivo:', err);
+      return;
+    }
+    // Realize a ação com base no conteúdo do arquivo
+    if (data.includes('ligado')) {
+      console.log('\ndesligar todos os servidores ativos na sessão anterior');
+
+      const numeros = data.match(/:\s*(\d+)/g); // Expressão regular para extrair números após os dois pontos
+    if (numeros) {
+      console.log('Números encontrados:', numeros);
+      // Faça algo com os números encontrados
+      const numerosFormatados = numeros.map((item) => {
+        return parseInt(item.split(':')[1].trim()); // Extrai o número após os dois pontos e converte para inteiro
+      });
+      console.log('Números formatados:', numerosFormatados);
+
+      const dadosParaAtualizar = {
+       online: 'offline',
+       // Adicione mais campos conforme necessário
+    };
+
+    let xanoUrl = "https://x8ki-letl-twmt.n7.xano.io/api:o0Wi0NQ7/servers/"+numerosFormatados
+
+    axios.put(xanoUrl, dadosParaAtualizar)
+  .then((response) => {
+    console.log('Resposta da API:', response.data);
+  })
+  .catch((error) => {
+    console.error('Erro ao enviar solicitação PUT:', error);
+  });
+
+    } else {
+      console.log('Nenhum número encontrado no arquivo.');
+    }
+
+      // Faça algo quando o servidor estiver ligado
+    } else if (data.includes('desligado')) {
+      console.log('Continuando script...');
+      // Faça algo quando o servidor estiver desligado
+    }
+  });
+};
+
+lerArquivo();
 
 function startServer() {
   // Criando um novo socket UDP
@@ -39,6 +108,8 @@ function startServer() {
        online: 'online',
        // Adicione mais campos conforme necessário
     };
+
+  fs.writeFileSync(STATUS_ARQUIVO, 'Servidor está ligado\n'+'ultimo id:'+idDoServer);
 
     axios.put(xanoPutUrl, dadosParaAtualizar)
   .then((response) => {
@@ -80,6 +151,7 @@ function startServer() {
     // Definindo temporizador para desligar o servidor após um tempo
     setTimeout(() => {
       console.log('Desligando o servidor...');
+      fs.writeFileSync(STATUS_ARQUIVO, 'Servidor está desligado\n');
       server.close();
       //startServer();
     }, SERVER_UP_DURATION);
@@ -112,6 +184,7 @@ if (interfaces.hasOwnProperty(interfaceName)) {
     console.log('Resposta da API:', response.data);
     idDoServer = response.data.id
     xanoPutUrl = 'https://x8ki-letl-twmt.n7.xano.io/api:o0Wi0NQ7/servers/'+idDoServer
+
     startServer();
     console.log(idDoServer)
   })
