@@ -22,4 +22,4 @@ Se você fechar o ambiente Linux de sua preferência vai notar que o servidor ai
 
 ONDE VEJO OS SERVIDORES DOS MEUS AMIGOS:
 
-aqui: www.serverlist.gameserv.xyz
+aqui: http://www.serverlist.gameserv.xyz
